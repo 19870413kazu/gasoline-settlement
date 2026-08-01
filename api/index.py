@@ -1,5 +1,6 @@
 import json
 import os
+from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
@@ -12,7 +13,7 @@ load_dotenv()
 
 app = FastAPI()
 
-GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+https://vercel.com/19870413kazu-projects/gasoline-settlement-v95/settings/environment-variablesGOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 DEFAULT_PRICE_PER_KM = float(os.environ.get("DEFAULT_PRICE_PER_KM", 15))
 
 address_cache = {}
@@ -129,4 +130,4 @@ async def parse_timeline(file: UploadFile = File(...)):
         )
 
 
-app.mount("/", StaticFiles(directory="public", html=True), name="public")
+app.mount("/", StaticFiles(directory=str(Path(__file__).parent.parent / "public"), html=True), name="public")
