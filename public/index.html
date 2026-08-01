@@ -1,0 +1,481 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ガソリン精算計算ツール</title>
+  <style>
+    * { box-sizing: border-box; }
+    body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; background: #f4f6f8; margin: 0; padding: 15px; color: #333; }
+    
+    .card { background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 2px 8px rgba(0,0,0,0.08); margin-bottom: 20px; }
+    h1 { font-size: 1.2rem; color: #1a365d; margin-top: 0; margin-bottom: 15px; }
+    
+    .btn { background: #2b6cb0; color: white; border: none; padding: 12px 20px; border-radius: 8px; font-weight: bold; width: 100%; cursor: pointer; font-size: 1rem; }
+    .btn:disabled { background: #cbd5e0; }
+    
+    .summary-box { background: #ebf8ff; border-left: 4px solid #3182ce; padding: 12px; border-radius: 4px; margin-bottom: 15px; }
+    .summary-box strong { font-size: 1.2rem; color: #2b6cb0; }
+    .summary-box small { display: block; margin-top: 5px; color: #4a5568; }
+    
+    .day-group { background: #f9fafb; border-radius: 8px; margin-bottom: 20px; overflow: hidden; border: 1px solid #e5e7eb; }
+    .day-header { background: #2d3748; color: white; padding: 12px 15px; font-weight: bold; font-size: 0.95rem; display: flex; justify-content: space-between; align-items: center; }
+    .day-header .date-label { display: flex; align-items: center; gap: 10px; }
+    .day-summary { background: #edf2f7; padding: 10px 15px; border-top: 1px solid #e5e7eb; font-size: 0.9rem; color: #2d3748; font-weight: bold; }
+    
+    .trip-item { padding: 12px 15px; border-bottom: 1px solid #e5e7eb; background: white; }
+    .trip-item:last-child { border-bottom: none; }
+    
+    .trip-main { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+    .trip-route { flex: 1; font-weight: 500; color: #1a202c; font-size: 0.95rem; }
+    .trip-distance { color: #718096; font-size: 0.9rem; margin: 0 10px; }
+    .trip-btn-group { display: flex; gap: 5px; }
+    
+    .toggle-btn { padding: 6px 12px; border: none; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; white-space: nowrap; }
+    .toggle-btn.active { background: #48bb78; color: white; }
+    .toggle-btn.inactive { background: #cbd5e0; color: #4a5568; }
+    .toggle-btn:hover { opacity: 0.9; }
+    
+    .category-btn { padding: 6px 12px; border: none; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; white-space: nowrap; margin-right: 5px; }
+    .category-btn.work.active { background: #4299e1; color: white; }
+    .category-btn.work.inactive { background: #cbd5e0; color: #4a5568; }
+    .category-btn.private.active { background: #ed8936; color: white; }
+    .category-btn.private.inactive { background: #cbd5e0; color: #4a5568; }
+    .category-btn:hover { opacity: 0.9; }
+    
+    .trip-details { font-size: 0.8rem; color: #718096; margin-left: 0; }
+    .trip-details span { display: inline; margin-right: 15px; }
+    
+    .trip-item.excluded { opacity: 0.6; }
+    
+    .edit-btn { padding: 6px 12px; background: #4299e1; color: white; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
+    .edit-btn:hover { background: #3182ce; }
+    
+    .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
+    .modal.active { display: flex; }
+    .modal-content { background: white; border-radius: 8px; padding: 20px; width: 90%; max-width: 500px; max-height: 80vh; overflow-y: auto; }
+    .modal-header { font-weight: bold; font-size: 1rem; margin-bottom: 15px; }
+    .field-group { margin-bottom: 12px; }
+    .field-label { font-size: 0.8rem; color: #718096; font-weight: bold; display: block; margin-bottom: 4px; }
+    .input-text { width: 100%; padding: 8px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.9rem; }
+    .modal-buttons { display: flex; gap: 10px; margin-top: 15px; }
+    .modal-buttons button { flex: 1; padding: 10px; border: none; border-radius: 6px; font-weight: bold; cursor: pointer; }
+    .save-btn { background: #48bb78; color: white; }
+    .cancel-btn { background: #cbd5e0; color: #2d3748; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>🚗 ガソリン代 精算作成</h1>
+    <input type="file" id="jsonFile" accept=".json" style="margin-bottom: 15px; width:100%;">
+    <button class="btn" id="uploadBtn" onclick="parseJson()">タイムラインを解析する</button>
+    
+    <div style="margin-top: 15px; padding-top: 15px; border-top: 1px solid #e5e7eb;">
+      <label style="font-size: 0.9rem; color: #4a5568; font-weight: bold; display: block; margin-bottom: 8px;">単価設定 (円/km)</label>
+      <div style="display: flex; gap: 8px; align-items: center;">
+        <input type="number" id="priceInput" value="15" min="1" max="1000" style="flex: 1; padding: 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.95rem;" onchange="updatePrice()" onkeyup="updatePrice()">
+        <span style="color: #718096; font-weight: bold;">円/km</span>
+      </div>
+    </div>
+  </div>
+
+  <div id="resultArea" style="display:none;">
+    <div class="card">
+      <label style="font-size: 0.9rem; color: #4a5568; font-weight: bold; display: block; margin-bottom: 8px;">📅 申請月を選択</label>
+      <select id="monthSelector" style="width: 100%; padding: 10px; border: 1px solid #cbd5e0; border-radius: 6px; font-size: 0.95rem; margin-bottom: 15px;" onchange="filterByMonth()">
+        <option value="">-- すべての月を表示 --</option>
+      </select>
+      
+      <div class="summary-box">
+        <strong>申請合計金額: <span id="totalPrice" style="font-size:1.4rem; color:#2b6cb0;">0</span> 円</strong>
+        <small>業務対象距離: <span id="totalKm">0</span> km (単価: <span id="unitPrice">15</span>円/km)</small>
+      </div>
+      <button class="btn" style="background:#38a169;" onclick="exportCSV()">精算用CSVを出力する</button>
+    </div>
+
+    <div id="itemList"></div>
+  </div>
+
+  <!-- 編集モーダル -->
+  <div id="editModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">移動ログを編集</div>
+      <div class="field-group">
+        <label class="field-label">目的（営業訪問、客先対応など）</label>
+        <input type="text" id="edit-purpose" class="input-text" placeholder="例：営業訪問">
+      </div>
+      <div class="field-group">
+        <label class="field-label">出発地</label>
+        <input type="text" id="edit-start" class="input-text">
+      </div>
+      <div class="field-group">
+        <label class="field-label">到着地</label>
+        <input type="text" id="edit-end" class="input-text">
+      </div>
+      <div class="modal-buttons">
+        <button class="save-btn" onclick="saveEdit()">保存</button>
+        <button class="cancel-btn" onclick="closeEditModal()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let activities = [];
+    let pricePerKm = 15;
+    let editingIndex = -1;
+    let selectedMonth = ''; // 選択されている月
+
+    async function parseJson() {
+      const fileInput = document.getElementById('jsonFile');
+      if (!fileInput.files.length) return alert('JSONファイルを選択してください。');
+
+      const btn = document.getElementById('uploadBtn');
+      btn.disabled = true;
+      btn.innerText = '住所変換・解析中...';
+
+      const formData = new FormData();
+      formData.append('file', fileInput.files[0]);
+
+      try {
+        const res = await fetch('/api/parse-timeline', { method: 'POST', body: formData });
+        const data = await res.json();
+        
+        if (data.success) {
+          activities = data.activities.map(item => ({
+            ...item,
+            isWork: true,  // デフォルトは業務
+            selected: item.isVehicle,
+            memo: '',
+            purpose: ''
+          }));
+          pricePerKm = data.pricePerKm;
+          document.getElementById('unitPrice').innerText = pricePerKm;
+          
+          // 月セレクタを作成
+          populateMonthSelector();
+          
+          selectedMonth = ''; // 初期状態はすべての月を表示
+          renderList();
+          document.getElementById('resultArea').style.display = 'block';
+        } else {
+          alert('エラー: ' + data.detail);
+        }
+      } catch (e) {
+        alert('通信エラーが発生しました');
+      } finally {
+        btn.disabled = false;
+        btn.innerText = 'タイムラインを解析する';
+      }
+    }
+
+    function populateMonthSelector() {
+      // 全アクティビティから月を抽出してソート
+      const months = new Set();
+      activities.forEach(item => {
+        const month = item.date.slice(0, 7); // YYYY-MM形式
+        months.add(month);
+      });
+
+      const sortedMonths = Array.from(months).sort();
+      const selector = document.getElementById('monthSelector');
+      
+      // オプションをクリア（最初の「すべての月」は残す）
+      while (selector.options.length > 1) {
+        selector.remove(1);
+      }
+      
+      // 月オプションを追加
+      sortedMonths.forEach(month => {
+        const option = document.createElement('option');
+        option.value = month;
+        option.innerText = month.replace('-', '年') + '月';
+        selector.appendChild(option);
+      });
+    }
+
+    function filterByMonth() {
+      selectedMonth = document.getElementById('monthSelector').value;
+      renderList();
+    }
+
+    function getFilteredActivities() {
+      if (!selectedMonth) {
+        return activities;
+      }
+      return activities.filter(item => item.date.startsWith(selectedMonth));
+    }
+
+    function extractCityName(addressStr) {
+      if (!addressStr) return 'ー';
+      // 郵便番号を削除
+      let cleaned = addressStr.replace(/〒[0-9-]+\s*/, '');
+      // 都道府県名を削除（複数のパターンに対応）
+      cleaned = cleaned.replace(/^(東京都|神奈川県|埼玉県|千葉県|大阪府|京都府|兵庫県|福岡県|北海道|青森県|岩手県|宮城県|秋田県|山形県|福島県|茨城県|栃木県|群馬県|山梨県|長野県|岐阜県|愛知県|三重県|滋賀県|奈良県|和歌山県|鳥取県|島根県|岡山県|広島県|山口県|徳島県|香川県|愛媛県|高知県|佐賀県|長崎県|熊本県|大分県|宮崎県|鹿児島県|沖縄県)/, '');
+      
+      // 市区町村 + その次の地名要素を取得
+      // 例: 「渋谷区渋谷」「中央区銀座」
+      const cityMatch = cleaned.match(/[^0-9０-９]*?[区市町村]/);
+      if (!cityMatch) return 'ー';
+      
+      const city = cityMatch[0];
+      const remaining = cleaned.substring(cityMatch[0].length);
+      
+      // 次の地名要素を取得（数字が出るまで、または最初の3文字まで）
+      const districtMatch = remaining.match(/^([^0-9０-９]*)/);
+      const district = districtMatch ? districtMatch[1] : '';
+      
+      // 市区町村 + 地名要素を結合（最大10文字程度に制限）
+      const result = (city + district).substring(0, 12);
+      return result || 'ー';
+    }
+
+    function renderList() {
+      const container = document.getElementById('itemList');
+      container.innerHTML = '';
+      
+      // フィルタ後のアクティビティを取得
+      const filteredActivities = getFilteredActivities();
+      
+      const grouped = {};
+      filteredActivities.forEach((item, index) => {
+        if (!grouped[item.date]) {
+          grouped[item.date] = [];
+        }
+        // 元のインデックスを保持するために、activitiesから該当要素を探す
+        const originalIndex = activities.indexOf(item);
+        grouped[item.date].push({ ...item, originalIndex: originalIndex });
+      });
+
+      // 日付順でソート
+      Object.keys(grouped).sort().forEach(date => {
+        const dayActivities = grouped[date];
+        
+        // 日計を計算
+        let dayKm = 0;
+        let dayPrice = 0;
+        dayActivities.forEach(item => {
+          if (item.isWork && item.selected) {
+            dayKm += item.distanceKm;
+            dayPrice += Math.round(item.distanceKm * pricePerKm);
+          }
+        });
+
+        // 日付グループを作成
+        const dayGroup = document.createElement('div');
+        dayGroup.className = 'day-group';
+
+        const dayHeader = document.createElement('div');
+        dayHeader.className = 'day-header';
+        dayHeader.innerHTML = `
+          <span class="date-label">📅 ${date}</span>
+          <span style="font-size:0.85rem; opacity:0.9;">${dayActivities.length}件</span>
+        `;
+        dayGroup.appendChild(dayHeader);
+
+        // 各移動を表示
+        dayActivities.forEach(item => {
+          const tripItem = document.createElement('div');
+          tripItem.className = `trip-item ${!item.isWork || !item.selected ? 'excluded' : ''}`;
+          
+          const showPrice = item.isWork && item.selected ? Math.round(item.distanceKm * pricePerKm) : 0;
+          const cityStart = extractCityName(item.startAddress);
+          const cityEnd = extractCityName(item.endAddress);
+          const purposeText = item.purpose ? `【${escapeHtml(item.purpose)}】` : '';
+          
+          tripItem.innerHTML = `
+            <div class="trip-main" style="flex-direction: column; align-items: flex-start;">
+              <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <div style="font-weight: 600; color: #1a202c; font-size: 0.95rem;">${purposeText}</div>
+                <div style="display: flex; gap: 5px;">
+                  <button class="category-btn work ${item.isWork ? 'active' : 'inactive'}" data-index="${item.originalIndex}" data-category="work">
+                    業務
+                  </button>
+                  <button class="category-btn private ${!item.isWork ? 'active' : 'inactive'}" data-index="${item.originalIndex}" data-category="private">
+                    プライベート
+                  </button>
+                </div>
+              </div>
+              <div style="width: 100%; display: flex; justify-content: space-between; align-items: center; margin-bottom: 6px;">
+                <div class="trip-route" style="margin: 0;">${cityStart} → ${cityEnd}</div>
+                <div class="trip-distance" style="margin: 0;">${item.distanceKm} km</div>
+              </div>
+              <div style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+                <div class="trip-details" style="margin: 0; margin-left: 0;">
+                  <span>${item.time}</span>
+                  <span>${item.type}</span>
+                </div>
+                <div style="display: flex; gap: 5px; align-items: center;">
+                  ${showPrice > 0 ? `<span style="color: #48bb78; font-weight: bold;">¥${showPrice}</span>` : ''}
+                  <button class="edit-btn" data-index="${item.originalIndex}" data-action="edit">編集</button>
+                </div>
+              </div>
+            </div>
+          `;
+          
+          // イベントリスナーを設定
+          const workBtn = tripItem.querySelector('button[data-category="work"]');
+          const privateBtn = tripItem.querySelector('button[data-category="private"]');
+          const editBtn = tripItem.querySelector('button[data-action="edit"]');
+          
+          if (workBtn) {
+            workBtn.addEventListener('click', () => {
+              setCategory(item.originalIndex, true);
+            });
+          }
+          if (privateBtn) {
+            privateBtn.addEventListener('click', () => {
+              setCategory(item.originalIndex, false);
+            });
+          }
+          if (editBtn) {
+            editBtn.addEventListener('click', () => {
+              openEditModal(item.originalIndex);
+            });
+          }
+          
+          dayGroup.appendChild(tripItem);
+        });
+
+        // 日計を表示
+        const daySummary = document.createElement('div');
+        daySummary.className = 'day-summary';
+        daySummary.innerHTML = `日計: ${dayKm.toFixed(1)} km × ¥${pricePerKm} = <strong style="color: #2b6cb0;">¥${dayPrice}</strong>`;
+        dayGroup.appendChild(daySummary);
+
+        container.appendChild(dayGroup);
+      });
+
+      calculateTotal();
+    }
+
+    function toggleSelection(index) {
+      activities[index].selected = !activities[index].selected;
+      renderList();
+    }
+
+    function setCategory(index, isWork) {
+      activities[index].isWork = isWork;
+      // 業務を選択した場合は計上、プライベートは除外
+      activities[index].selected = isWork;
+      renderList();
+    }
+
+    function openEditModal(index) {
+      editingIndex = index;
+      document.getElementById('edit-purpose').value = activities[index].purpose || '';
+      document.getElementById('edit-start').value = activities[index].startAddress;
+      document.getElementById('edit-end').value = activities[index].endAddress;
+      document.getElementById('editModal').classList.add('active');
+    }
+
+    function closeEditModal() {
+      document.getElementById('editModal').classList.remove('active');
+      editingIndex = -1;
+    }
+
+    function saveEdit() {
+      if (editingIndex >= 0) {
+        activities[editingIndex].purpose = document.getElementById('edit-purpose').value;
+        activities[editingIndex].startAddress = document.getElementById('edit-start').value;
+        activities[editingIndex].endAddress = document.getElementById('edit-end').value;
+      }
+      renderList();
+      closeEditModal();
+    }
+
+    function calculateTotal() {
+      let totalKm = 0;
+      activities.forEach(item => {
+        if (item.isWork && item.selected) totalKm += item.distanceKm;
+      });
+      const totalPrice = Math.round(totalKm * pricePerKm);
+      document.getElementById('totalKm').innerText = totalKm.toFixed(1);
+      document.getElementById('totalPrice').innerText = totalPrice.toLocaleString();
+      document.getElementById('unitPrice').innerText = pricePerKm;
+    }
+
+    function updatePrice() {
+      const input = document.getElementById('priceInput');
+      const newPrice = parseInt(input.value) || 15;
+      if (newPrice > 0 && newPrice <= 1000) {
+        pricePerKm = newPrice;
+        renderList();
+      }
+    }
+
+    function exportCSV() {
+      const currentPrice = parseInt(document.getElementById('priceInput').value) || 15;
+      let csv = "\uFEFF日付,時間,移動手段,出発地,到着地,距離(km),単価(円/km),支給金額(円)\n";
+      
+      // フィルタ後のアクティビティを使用
+      const filteredActivities = getFilteredActivities();
+      
+      // 月ごとにグループ化
+      const grouped = {};
+      filteredActivities.forEach(item => {
+        if (item.isWork && item.selected) {
+          const price = Math.round(item.distanceKm * currentPrice);
+          const month = item.date.slice(0, 7);
+          if (!grouped[month]) {
+            grouped[month] = [];
+          }
+          grouped[month].push({
+            date: item.date,
+            time: item.time,
+            type: item.type,
+            startAddress: item.startAddress,
+            endAddress: item.endAddress,
+            distanceKm: item.distanceKm,
+            price: price
+          });
+        }
+      });
+
+      if (Object.keys(grouped).length === 0) return alert('申請する移動ログが選択されていません。');
+
+      let totalKm = 0;
+      let totalPrice = 0;
+
+      // 月ごとに出力
+      Object.keys(grouped).sort().forEach(month => {
+        const items = grouped[month];
+        let monthKm = 0;
+        let monthPrice = 0;
+
+        items.forEach(item => {
+          csv += `"${item.date}","${item.time}","${item.type}","${item.startAddress}","${item.endAddress}",${item.distanceKm},${currentPrice},${item.price}\n`;
+          monthKm += item.distanceKm;
+          monthPrice += item.price;
+        });
+
+        // 月計行
+        const monthStr = month.replace('-', '年') + '月';
+        csv += `"${monthStr}計","","","","",${monthKm.toFixed(1)},,${monthPrice}\n`;
+        csv += "\n";
+
+        totalKm += monthKm;
+        totalPrice += monthPrice;
+      });
+
+      // 全体計行
+      csv += `"合計","","","","",${totalKm.toFixed(1)},,${totalPrice}\n`;
+
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const link = document.createElement('a');
+      link.href = URL.createObjectURL(blob);
+      link.download = `ガソリン精算_${new Date().toISOString().slice(0,10)}.csv`;
+      link.click();
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return str.replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/'/g, '&#039;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
+
+    // モーダルを閉じる（外側をクリック）
+    document.getElementById('editModal').addEventListener('click', (e) => {
+      if (e.target.id === 'editModal') closeEditModal();
+    });
+  </script>
+</body>
+</html>
