@@ -1,10 +1,8 @@
 import json
 import os
-from pathlib import Path
 from concurrent.futures import ThreadPoolExecutor
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse
-from fastapi.staticfiles import StaticFiles
 import requests
 from dotenv import load_dotenv
 
@@ -128,6 +126,3 @@ async def parse_timeline(file: UploadFile = File(...)):
         raise HTTPException(
             status_code=400, detail=f"解析エラー: {str(e)}"
         )
-
-
-app.mount("/", StaticFiles(directory=str(Path(__file__).parent.parent / "public"), html=True), name="public")
