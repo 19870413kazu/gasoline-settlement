@@ -32,24 +32,24 @@ def get_address(geo_str: str) -> str:
         return address_cache[cache_key]
 
     if not GOOGLE_MAPS_API_KEY:
-        print(f"⚠️ APIキーなし")
+        print(f"[WARN] APIキーなし")
         return f"{lat}, {lng}"
 
     try:
         url = f"https://maps.googleapis.com/maps/api/geocode/json?latlng={lat},{lng}&language=ja&key={GOOGLE_MAPS_API_KEY}"
-        print(f"🔄 APIを呼び出す: {lat}, {lng}")
+        print(f"[INFO] Calling API: {lat}, {lng}")
         resp = requests.get(url, timeout=4)
         data = resp.json()
-        print(f"✅ ステータス: {data.get('status')}")
+        print(f"[OK] Status: {data.get('status')}")
         if data.get("status") == "OK" and data.get("results"):
             addr = data["results"][0]["formatted_address"].replace("日本、", "")
             address_cache[cache_key] = addr
-            print(f"✅ アドレス取得: {addr[:50]}...")
+            print(f"[OK] Address found: {addr[:50]}...")
             return addr
         else:
-            print(f"❌ API エラー: {data.get('error_message', 'No error message')}")
+            print(f"[ERROR] API error: {data.get('error_message', 'No error message')}")
     except Exception as e:
-        print(f"❌ 例外: {e}")
+        print(f"[ERROR] Exception: {e}")
     return f"{lat}, {lng}"
 
 
@@ -130,26 +130,13 @@ async def parse_timeline(file: UploadFile = File(...)):
         )
 
 
-# ホームページルート
-@app.get("/")
-async def home():
-    # Vercel 環境でのファイルパス解決
-    possible_paths = [
-        Path(__file__).parent.parent / "public" / "index.html",
-        Path(__file__).parent.parent / "public" / "index.html",
-        Path("/var/task/public/index.html"),  # Vercel Lambda runtime path
-        Path("./public/index.html"),  # Relative path
-    ]
-    
-    for index_path in possible_paths:
-        try:
-            if index_path.exists():
-                with open(index_path, "r", encoding="utf-8") as f:
-                    html_content = f.read()
-                print(f"✅ Loaded index.html from: {index_path}")
-                return HTMLResponse(content=html_content)
-        except Exception as e:
-            print(f"❌ Failed to load from {index_path}: {e}")
-    
-    print("❌ index.html not found, returning fallback JSON")
-    return JSONResponse({"message": "Welcome to ガソリン精算計算ツール"})
+# 静的ファイルの mount
+try:
+    public_path = Path(__file__).parent.parent / "public"
+    if public_path.exists():
+        app.mount("/", StaticFiles(directory=str(public_path), html=True), name="public")
+        print(f"[OK] Static files mounted: {public_path}")
+    else:
+        print(f"[WARN] Public directory not found: {public_path}")
+except Exception as e:
+    print(f"[WARN] Error mounting static files: {e}")
