@@ -11,7 +11,7 @@ load_dotenv()
 
 app = FastAPI()
 
-https://vercel.com/19870413kazu-projects/gasoline-settlement-v95/settings/environment-variablesGOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
+GOOGLE_MAPS_API_KEY = os.environ.get("GOOGLE_MAPS_API_KEY", "")
 DEFAULT_PRICE_PER_KM = float(os.environ.get("DEFAULT_PRICE_PER_KM", 15))
 
 address_cache = {}
