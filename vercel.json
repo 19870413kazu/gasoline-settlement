@@ -1,0 +1,17 @@
+{
+  "buildCommand": "echo 'Build complete'",
+  "functions": {
+    "api/index.py": {
+      "runtime": "python3.11",
+      "environment": {
+        "PYTHONUNBUFFERED": "1"
+      }
+    }
+  },
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "api/index.py"
+    }
+  ]
+}
