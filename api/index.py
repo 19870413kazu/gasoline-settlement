@@ -4,7 +4,6 @@ from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, UploadFile
 from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
 import requests
 from dotenv import load_dotenv
 
@@ -129,14 +128,3 @@ async def parse_timeline(file: UploadFile = File(...)):
             status_code=400, detail=f"解析エラー: {str(e)}"
         )
 
-
-# 静的ファイルの mount
-try:
-    public_path = Path(__file__).parent.parent / "public"
-    if public_path.exists():
-        app.mount("/", StaticFiles(directory=str(public_path), html=True), name="public")
-        print(f"[OK] Static files mounted: {public_path}")
-    else:
-        print(f"[WARN] Public directory not found: {public_path}")
-except Exception as e:
-    print(f"[WARN] Error mounting static files: {e}")
