@@ -12,3 +12,4 @@ venv/
 .idea/
 node_modules/
 .vercel
+.env*

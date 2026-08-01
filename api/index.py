@@ -133,13 +133,4 @@ async def parse_timeline(file: UploadFile = File(...)):
 # ホームページルート
 @app.get("/")
 async def home():
-    public_dir = Path(__file__).parent.parent / "public"
-    index_path = public_dir / "index.html"
-    if index_path.exists():
-        return FileResponse(str(index_path), media_type="text/html")
     return JSONResponse({"message": "Welcome to ガソリン精算計算ツール"})
-
-# 静的ファイルマウント（public フォルダから提供）
-public_dir = Path(__file__).parent.parent / "public"
-if public_dir.exists():
-    app.mount("/", StaticFiles(directory=str(public_dir), html=True), name="public")
