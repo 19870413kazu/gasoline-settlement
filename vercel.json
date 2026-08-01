@@ -1,11 +1,9 @@
 {
-  "buildCommand": "echo 'Build complete'",
+  "buildCommand": "pip install -r requirements.txt",
+  "outputDirectory": ".",
   "functions": {
     "api/index.py": {
-      "runtime": "python3.11",
-      "environment": {
-        "PYTHONUNBUFFERED": "1"
-      }
+      "runtime": "python3.11"
     }
   },
   "routes": [
