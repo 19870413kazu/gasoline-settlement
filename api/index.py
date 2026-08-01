@@ -133,13 +133,23 @@ async def parse_timeline(file: UploadFile = File(...)):
 # ホームページルート
 @app.get("/")
 async def home():
-    public_dir = Path(__file__).parent.parent / "public"
-    index_path = public_dir / "index.html"
-    try:
-        if index_path.exists():
-            with open(index_path, "r", encoding="utf-8") as f:
-                html_content = f.read()
-            return HTMLResponse(content=html_content)
-    except Exception as e:
-        print(f"Error reading index.html: {e}")
+    # Vercel 環境でのファイルパス解決
+    possible_paths = [
+        Path(__file__).parent.parent / "public" / "index.html",
+        Path(__file__).parent.parent / "public" / "index.html",
+        Path("/var/task/public/index.html"),  # Vercel Lambda runtime path
+        Path("./public/index.html"),  # Relative path
+    ]
+    
+    for index_path in possible_paths:
+        try:
+            if index_path.exists():
+                with open(index_path, "r", encoding="utf-8") as f:
+                    html_content = f.read()
+                print(f"✅ Loaded index.html from: {index_path}")
+                return HTMLResponse(content=html_content)
+        except Exception as e:
+            print(f"❌ Failed to load from {index_path}: {e}")
+    
+    print("❌ index.html not found, returning fallback JSON")
     return JSONResponse({"message": "Welcome to ガソリン精算計算ツール"})
