@@ -3,7 +3,7 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from fastapi import FastAPI, File, HTTPException, UploadFile
-from fastapi.responses import JSONResponse, FileResponse
+from fastapi.responses import JSONResponse, FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 import requests
 from dotenv import load_dotenv
@@ -133,4 +133,13 @@ async def parse_timeline(file: UploadFile = File(...)):
 # ホームページルート
 @app.get("/")
 async def home():
+    public_dir = Path(__file__).parent.parent / "public"
+    index_path = public_dir / "index.html"
+    try:
+        if index_path.exists():
+            with open(index_path, "r", encoding="utf-8") as f:
+                html_content = f.read()
+            return HTMLResponse(content=html_content)
+    except Exception as e:
+        print(f"Error reading index.html: {e}")
     return JSONResponse({"message": "Welcome to ガソリン精算計算ツール"})
