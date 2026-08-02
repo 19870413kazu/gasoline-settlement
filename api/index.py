@@ -18,6 +18,14 @@ DEFAULT_PRICE_PER_KM = float(os.environ.get("DEFAULT_PRICE_PER_KM", 15))
 address_cache = {}
 
 
+@app.get("/")
+async def read_root():
+    html_path = Path(__file__).parent.parent / "public" / "index.html"
+    if html_path.exists():
+        return FileResponse(html_path, media_type="text/html")
+    return HTMLResponse("<h1>Hello</h1>")
+
+
 def get_address(geo_str: str) -> str:
     if not geo_str or not geo_str.startswith("geo:"):
         return "住所不明"

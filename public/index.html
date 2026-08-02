@@ -50,6 +50,8 @@
     
     .edit-btn { padding: 6px 12px; background: #4299e1; color: white; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer; }
     .edit-btn:hover { background: #3182ce; }
+    .add-btn { padding: 6px 12px; background: #48bb78; color: white; border: none; border-radius: 6px; font-size: 0.8rem; font-weight: bold; cursor: pointer; }
+    .add-btn:hover { background: #38a169; }
     
     .modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 1000; align-items: center; justify-content: center; }
     .modal.active { display: flex; }
@@ -100,17 +102,20 @@
   <div id="editModal" class="modal">
     <div class="modal-content">
       <div class="modal-header">移動ログを編集</div>
+      <div style="background: #fef5e7; border-left: 4px solid #f39c12; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 0.85rem; color: #7d6608;">
+        ℹ️ GPS情報が取得できない場合や誤っている場合は、以下の住所を手入力で修正してください
+      </div>
       <div class="field-group">
         <label class="field-label">目的（営業訪問、客先対応など）</label>
-        <input type="text" id="edit-purpose" class="input-text" placeholder="例：営業訪問">
+        <input type="text" id="edit-purpose" class="input-text" placeholder="例：営業訪問、新規営業、既存客フォロー">
       </div>
       <div class="field-group">
         <label class="field-label">出発地</label>
-        <input type="text" id="edit-start" class="input-text">
+        <input type="text" id="edit-start" class="input-text" placeholder="例：東京都渋谷区渋谷 または 北緯35.XXX 東経139.XXX">
       </div>
       <div class="field-group">
         <label class="field-label">到着地</label>
-        <input type="text" id="edit-end" class="input-text">
+        <input type="text" id="edit-end" class="input-text" placeholder="例：東京都渋谷区渋谷 または 北緯35.XXX 東経139.XXX">
       </div>
       <div class="modal-buttons">
         <button class="save-btn" onclick="saveEdit()">保存</button>
@@ -119,10 +124,53 @@
     </div>
   </div>
 
+  <!-- 新規追加モーダル -->
+  <div id="addModal" class="modal">
+    <div class="modal-content">
+      <div class="modal-header">移動ログを新規追加</div>
+      <div style="background: #ebf8ff; border-left: 4px solid #3182ce; padding: 10px; border-radius: 4px; margin-bottom: 15px; font-size: 0.85rem; color: #063e8d;">
+        ℹ️ GPS情報が取得できなかった移動を手入力で追加できます
+      </div>
+      <div class="field-group">
+        <label class="field-label">目的（営業訪問、客先対応など）</label>
+        <input type="text" id="add-purpose" class="input-text" placeholder="例：営業訪問、新規営業、既存客フォロー">
+      </div>
+      <div class="field-group">
+        <label class="field-label">出発地</label>
+        <input type="text" id="add-start" class="input-text" placeholder="例：東京都渋谷区渋谷">
+      </div>
+      <div class="field-group">
+        <label class="field-label">到着地</label>
+        <input type="text" id="add-end" class="input-text" placeholder="例：東京都新宿区新宿">
+      </div>
+      <div class="field-group">
+        <label class="field-label">距離（km）<span style="color: #e53e3e;">*必須</span></label>
+        <input type="number" id="add-distance" class="input-text" placeholder="例：5.2" min="0.1" step="0.1" required>
+      </div>
+      <div class="field-group">
+        <label class="field-label">時間（HH:MM）</label>
+        <input type="time" id="add-time" class="input-text">
+      </div>
+      <div class="field-group">
+        <label class="field-label">移動手段</label>
+        <select id="add-type" class="input-text">
+          <option value="自動車">自動車</option>
+          <option value="バイク">バイク</option>
+          <option value="その他">その他</option>
+        </select>
+      </div>
+      <div class="modal-buttons">
+        <button class="save-btn" onclick="saveAdd()">追加</button>
+        <button class="cancel-btn" onclick="closeAddModal()">キャンセル</button>
+      </div>
+    </div>
+  </div>
+
   <script>
     let activities = [];
     let pricePerKm = 15;
     let editingIndex = -1;
+    let addingDate = ''; // 新規追加時の日付
     let selectedMonth = ''; // 選択されている月
 
     async function parseJson() {
@@ -268,9 +316,20 @@
         dayHeader.className = 'day-header';
         dayHeader.innerHTML = `
           <span class="date-label">📅 ${date}</span>
-          <span style="font-size:0.85rem; opacity:0.9;">${dayActivities.length}件</span>
+          <div style="display: flex; gap: 8px; align-items: center;">
+            <span style="font-size:0.85rem; opacity:0.9;">${dayActivities.length}件</span>
+            <button class="add-btn" data-date="${date}" data-action="add-new">+ 新規追加</button>
+          </div>
         `;
         dayGroup.appendChild(dayHeader);
+        
+        // 「+新規追加」ボタンのイベントリスナー
+        const addBtn = dayHeader.querySelector('button[data-action="add-new"]');
+        if (addBtn) {
+          addBtn.addEventListener('click', () => {
+            openAddModal(date);
+          });
+        }
 
         // 各移動を表示
         dayActivities.forEach(item => {
@@ -383,6 +442,52 @@
       closeEditModal();
     }
 
+    function openAddModal(date) {
+      addingDate = date;
+      // フィールドをリセット
+      document.getElementById('add-purpose').value = '';
+      document.getElementById('add-start').value = '';
+      document.getElementById('add-end').value = '';
+      document.getElementById('add-distance').value = '';
+      document.getElementById('add-time').value = '';
+      document.getElementById('add-type').value = '自動車';
+      document.getElementById('addModal').classList.add('active');
+    }
+
+    function closeAddModal() {
+      document.getElementById('addModal').classList.remove('active');
+      addingDate = '';
+    }
+
+    function saveAdd() {
+      const distance = parseFloat(document.getElementById('add-distance').value);
+      if (!distance || distance <= 0) {
+        alert('距離を入力してください（0より大きい値）');
+        return;
+      }
+
+      const newActivity = {
+        date: addingDate,
+        time: document.getElementById('add-time').value,
+        type: document.getElementById('add-type').value,
+        isVehicle: true,
+        distanceMeters: Math.round(distance * 1000),
+        distanceKm: distance,
+        startGeo: '',
+        endGeo: '',
+        startAddress: document.getElementById('add-start').value || '手入力',
+        endAddress: document.getElementById('add-end').value || '手入力',
+        isWork: true,
+        selected: true,
+        memo: '',
+        purpose: document.getElementById('add-purpose').value
+      };
+
+      activities.push(newActivity);
+      renderList();
+      closeAddModal();
+    }
+
     function calculateTotal() {
       let totalKm = 0;
       activities.forEach(item => {
@@ -405,7 +510,7 @@
 
     function exportCSV() {
       const currentPrice = parseInt(document.getElementById('priceInput').value) || 15;
-      let csv = "\uFEFF日付,時間,移動手段,出発地,到着地,距離(km),単価(円/km),支給金額(円)\n";
+      let csv = "\uFEFF日付,時間,移動手段,目的,出発地,到着地,距離(km),単価(円/km),支給金額(円)\n";
       
       // フィルタ後のアクティビティを使用
       const filteredActivities = getFilteredActivities();
@@ -423,6 +528,7 @@
             date: item.date,
             time: item.time,
             type: item.type,
+            purpose: item.purpose,
             startAddress: item.startAddress,
             endAddress: item.endAddress,
             distanceKm: item.distanceKm,
@@ -443,15 +549,10 @@
         let monthPrice = 0;
 
         items.forEach(item => {
-          csv += `"${item.date}","${item.time}","${item.type}","${item.startAddress}","${item.endAddress}",${item.distanceKm},${currentPrice},${item.price}\n`;
+          csv += `"${item.date}","${item.time}","${item.type}","${item.purpose}","${item.startAddress}","${item.endAddress}",${item.distanceKm},${currentPrice},${item.price}\n`;
           monthKm += item.distanceKm;
           monthPrice += item.price;
         });
-
-        // 月計行
-        const monthStr = month.replace('-', '年') + '月';
-        csv += `"${monthStr}計","","","","",${monthKm.toFixed(1)},,${monthPrice}\n`;
-        csv += "\n";
 
         totalKm += monthKm;
         totalPrice += monthPrice;
@@ -475,6 +576,10 @@
     // モーダルを閉じる（外側をクリック）
     document.getElementById('editModal').addEventListener('click', (e) => {
       if (e.target.id === 'editModal') closeEditModal();
+    });
+    
+    document.getElementById('addModal').addEventListener('click', (e) => {
+      if (e.target.id === 'addModal') closeAddModal();
     });
   </script>
 </body>
